@@ -34,17 +34,27 @@ sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
 ```
 
-**第四步：安装 NVIDIA 支持（GPU用户）**
+**第四步：安装 NVIDIA Container Toolkit（GPU用户）**
 ```bash
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 sudo apt update
-sudo apt install -y nvidia-container-toolkit cuda-drivers
+sudo apt install -y nvidia-container-toolkit
 sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
-**第五步：克隆项目**
+**第五步：安装 NVIDIA 驱动（包含 CUDA 支持）**
+```bash
+sudo apt install -y cuda-drivers
+```
+
+**安装完成后，请重启系统：**
+```bash
+sudo reboot
+```
+
+**第六步：克隆项目**
 ```bash
 git clone https://github.com/gensyn-ai/rl-swarm
 cd rl-swarm
@@ -111,4 +121,4 @@ sudo systemctl restart docker
 ```
 
 ---
-💡 **安装完成后建议重启系统** 
+⚠️ **重要：安装完成后必须重启系统以激活 NVIDIA 驱动** 
