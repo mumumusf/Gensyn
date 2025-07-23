@@ -51,28 +51,53 @@ http://localhost:3000/
 ```
 
 ### 云服务器/VPS 访问
-如果使用云服务器或 VPS，需要使用隧道工具：
+如果使用云服务器或 VPS，需要使用隧道工具将本地端口暴露到外网：
 
-1. **打开新终端**
+1. **保持项目运行**
+   - 确保 Gensyn 项目在后台运行
+   - 项目应该监听在 `localhost:3000`
 
-2. **安装 localtunnel**
+2. **打开新终端窗口**
+   - 不要关闭运行 Gensyn 的终端
+   - 在新终端中执行以下步骤
+
+3. **安装 localtunnel**
 ```bash
 npm install -g localtunnel
 ```
+如果安装失败，可以尝试：
+```bash
+sudo npm install -g localtunnel
+```
 
-3. **获取隧道密码**
+4. **获取隧道密码**
 ```bash
 curl https://loca.lt/mytunnelpassword
 ```
-注意：密码就是您的 VPS IP 地址
+**重要说明**：
+- 返回的密码实际上就是您的 VPS 公网 IP 地址
+- 例如：如果您的 VPS IP 是 `123.45.67.89`，密码就是 `123.45.67.89`
+- 请记住这个密码，稍后访问网站时需要输入
 
-4. **创建隧道**
+5. **创建隧道**
 ```bash
 lt --port 3000
 ```
+命令执行后会显示类似这样的输出：
+```
+your url is: https://smooth-goose-12.loca.lt
+```
 
-5. **访问项目**
-打开提示的 URL，进入 Gensyn 登录页面
+6. **访问项目**
+   - 复制上面显示的 URL（例如：`https://smooth-goose-12.loca.lt`）
+   - 在浏览器中打开这个 URL
+   - 首次访问会要求输入密码，输入步骤4获取的密码（您的VPS IP）
+   - 验证通过后即可看到 Gensyn 登录页面
+
+**注意事项**：
+- 隧道 URL 每次都不同，重新运行会生成新的随机 URL
+- 保持终端运行，关闭终端隧道会断开
+- 如果隧道断开，重新执行 `lt --port 3000` 即可
 
 ## HuggingFace 设置
 

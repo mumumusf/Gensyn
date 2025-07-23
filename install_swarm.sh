@@ -78,6 +78,35 @@ check_ubuntu() {
     fi
 }
 
+# 检查并处理 Docker 权限
+check_docker_permissions() {
+    if ! groups | grep -q docker 2>/dev/null; then
+        log_warning "当前用户不在 docker 组中"
+        return 1
+    fi
+    return 0
+}
+
+# 安全删除目录（处理权限问题）
+safe_remove_directory() {
+    local dir_path="$1"
+    local dir_name=$(basename "$dir_path")
+    
+    if [ -d "$dir_path" ]; then
+        log_warning "$dir_name 目录已存在，正在删除..."
+        # 尝试普通删除，如果失败则使用 sudo
+        if ! rm -rf "$dir_path" 2>/dev/null; then
+            log_warning "需要管理员权限删除文件..."
+            if ! sudo rm -rf "$dir_path"; then
+                log_error "无法删除 $dir_path 目录"
+                return 1
+            fi
+        fi
+        log_info "$dir_name 目录删除成功"
+    fi
+    return 0
+}
+
 # 安装基础工具
 install_basic_tools() {
     log_info "开始安装基础工具..."
@@ -249,6 +278,10 @@ install_nvidia_drivers() {
     wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
     sudo dpkg -i cuda-keyring_1.1-1_all.deb
     
+    # 清理下载的文件
+    log_info "清理临时文件..."
+    rm -f cuda-keyring_1.1-1_all.deb
+    
     # 3. 更新软件包索引
     log_info "更新软件包索引..."
     sudo apt update
@@ -264,12 +297,17 @@ install_nvidia_drivers() {
 clone_gensyn() {
     log_info "开始克隆 RL-Swarm 项目..."
     
-    if [ -d "rl-swarm" ]; then
-        log_warning "rl-swarm 目录已存在，正在删除..."
-        rm -rf rl-swarm
+    # 使用安全删除函数处理已存在的目录
+    if ! safe_remove_directory "rl-swarm"; then
+        log_error "无法删除已存在的 rl-swarm 目录"
+        return 1
     fi
     
-    git clone https://github.com/gensyn-ai/rl-swarm
+    log_info "正在克隆项目..."
+    if ! git clone https://github.com/gensyn-ai/rl-swarm; then
+        log_error "克隆 RL-Swarm 项目失败"
+        return 1
+    fi
     
     log_success "RL-Swarm 项目克隆完成"
 }
@@ -331,6 +369,13 @@ setup_and_run() {
     
     log_info "创建启动脚本..."
     
+    # 检查当前目录写权限
+    if ! touch .test_write 2>/dev/null; then
+        log_error "当前目录无写权限，无法创建启动脚本"
+        return 1
+    fi
+    rm -f .test_write
+    
     # 创建 CPU 模式启动脚本
     cat > start_swarm_cpu.sh << EOF
 #!/bin/bash
@@ -381,11 +426,9 @@ EOF
         1)
             log_info "正在启动 RL-Swarm ($RUN_MODE 模式)..."
             
-            # 刷新 docker 组权限（如果需要）
-            if groups | grep -q docker; then
-                log_info "Docker 组权限已生效"
-                         else
-                log_warning "需要刷新 Docker 组权限，正在处理..."
+            # 检查 Docker 权限
+            if ! check_docker_permissions; then
+                log_info "正在使用 sg 命令获取 docker 组权限..."
                 echo ""
                 log_info "即将进入 RL-Swarm 运行界面 ($RUN_MODE 模式)"
                 echo -e "  ${YELLOW}提示：${NC}"
@@ -395,12 +438,14 @@ EOF
                 echo ""
                 read -p "按回车键启动并进入 RL-Swarm..."
                 
-                # 在新的 shell 中启动，避免权限问题，直接进入运行界面
+                # 在新的 shell 中启动，避免权限问题
                 exec sg docker -c "cd rl-swarm && exec screen -S swarm bash -c '$DOCKER_COMMAND'"
+            else
+                log_info "Docker 组权限已生效"
             fi
             
             # 检查是否已有同名会话
-            if screen -list | grep -q "swarm"; then
+            if screen -list 2>/dev/null | grep -q "swarm"; then
                 log_warning "检测到已存在的 'swarm' 会话，正在终止..."
                 screen -S swarm -X quit 2>/dev/null || true
                 sleep 2
